@@ -1,0 +1,97 @@
+import face_recognition
+import cv2
+import os
+import numpy as np
+from datetime import datetime
+from IPython.display import display, clear_output
+from PIL import Image
+
+# Load wajah dari folder known_faces
+known_faces = []
+known_names = []
+
+path = "known_faces"
+for file_name in os.listdir(path):
+    if file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
+        img_path = os.path.join(path, file_name)
+        image = face_recognition.load_image_file(img_path)
+        encodings = face_recognition.face_encodings(image)
+        if encodings:
+            known_faces.append(encodings[0])
+            known_names.append(os.path.splitext(file_name)[0])
+            print(f"Loaded: {file_name}")
+        else:
+            print(f"Tidak ditemukan wajah dalam: {file_name}")
+
+# Lanjut ke fragment 2
+# Fragment 2
+
+# Inisialisasi webcam
+video_capture = cv2.VideoCapture(0)
+print("Webcam aktif. Tekan 'Stop' di Jupyter untuk menghentikan.")
+
+try:
+    while True:
+        ret, frame = video_capture.read()
+        if not ret:
+            print("Gagal membaca frame dari webcam")
+            break
+
+        # Resize dan konversi ke RGB
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        rgb_small_frame = small_frame[:, :, ::-1]
+        rgb_small_frame = np.array(rgb_small_frame, dtype=np.uint8)
+
+        # Deteksi wajah
+        face_locations = face_recognition.face_locations(rgb_small_frame)
+        # face_locations = face_recognition.face_locations(image, model="cnn")
+
+
+# Lanjut ke fragment 3
+# Fragment 3
+
+        if isinstance(face_locations, list) and face_locations:
+            try:
+                face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+                for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+                    matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=0.5)
+                    name = "Unknown"
+                    if True in matches:
+                        match_index = matches.index(True)
+                        name = known_names[match_index]
+                        print(f"Detected: {name}")
+                        with open("log_absensi.csv", "a") as f:
+                            f.write(f"{datetime.now()},{name}\n")
+                    else:
+                        print("Wajah tidak dikenali")
+
+                    # Skala koordinat ke ukuran frame asli
+                    top *= 4
+                    right *= 4
+                    bottom *= 4
+                    left *= 4
+
+# Lanjut ke fragment 4
+# Fragment 4 
+
+# Gambar kotak dan label
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                    cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
+                    cv2.putText(frame, name, (left + 6, bottom - 8), cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 1)
+            except Exception as e:
+                print("Gagal encoding wajah:", e)
+        else:
+            print("Tidak ada wajah yang terdeteksi.")
+
+        # Tampilkan frame di notebook
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil_img = Image.fromarray(rgb_frame)
+        clear_output(wait=True)
+        display(pil_img)
+
+except KeyboardInterrupt:
+    print("Proses dihentikan oleh pengguna.")
+
+finally:
+    video_capture.release()
+    cv2.destroyAllWindows()
